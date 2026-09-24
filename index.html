@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecRepoBench Pareto Front</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e;
+  --muted: #898781; --grid: #e1e0d9; --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --g0: #898781; --g1: #86b6ef; --g2: #2a78d6; --g3: #104281;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7;
+    --muted: #898781; --grid: #2c2c2a; --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --g0: #898781; --g1: #184f95; --g2: #3987e5; --g3: #9ec5f4;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --g0: #898781; --g1: #184f95; --g2: #3987e5; --g3: #9ec5f4;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 880px; margin: 0 auto; padding: 32px 16px 56px; }
+h1 { font-size: 22px; margin: 0 0 6px; font-weight: 650; }
+p.lede { margin: 0 0 20px; color: var(--ink2); max-width: 68ch; }
+.card { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  margin-bottom: 8px; font-size: 14px; color: var(--ink2); }
+.controls input[type=range] { width: 180px; accent-color: var(--g2); }
+.stat { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+svg { width: 100%; height: auto; display: block; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px;
+  color: var(--ink2); margin-top: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.ln { width: 18px; border-top: 2px solid var(--g3); display: inline-block; }
+.ln.dash { border-top: 2px dashed var(--g2); }
+#tip { position: fixed; pointer-events: none; background: var(--surface);
+  color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transition: opacity .1s; }
+#tip b { font-weight: 600; }
+#tip .m { color: var(--ink2); font-variant-numeric: tabular-nums; }
+details { margin-top: 16px; }
+summary { cursor: pointer; color: var(--ink2); font-size: 14px; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px;
+  font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+th { color: var(--ink2); font-weight: 600; }
+tr.front td { font-weight: 600; }
+p.note { font-size: 13px; color: var(--muted); margin: 14px 0 0; max-width: 72ch; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pareto front of MOEA/D alone on SecRepoBench</h1>
+  <p class="lede">Every dot is one harness from a single controlled run: MOEA/D with Tchebycheff
+  acceptance (N = 5 subproblems, neighborhood T = 2, 3 generations), with no factored evolving
+  and no dynamic orchestration, so that the front shows only what the decomposition does.
+  Scores are on the 30-task search split. Both objectives are maximized, so better is up and to
+  the right. Drag the slider to watch the front move generation by generation.</p>
+
+  <div class="card">
+    <div class="controls">
+      <label for="gen">Generations shown: up to</label>
+      <input id="gen" type="range" min="0" max="3" step="1" value="3">
+      <span class="stat" id="genv">3</span>
+      <span>· hypervolume <span class="stat" id="hv">–</span></span>
+      <span>· front size <span class="stat" id="fsz">–</span></span>
+    </div>
+    <svg id="plot" viewBox="0 0 640 440" role="img"
+         aria-label="Scatter of functionality against security for the baseline and 15 evolved harnesses, with the Pareto front"></svg>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--g0);border-radius:2px"></i>baseline</span>
+      <span><i class="sw" style="background:var(--g1)"></i>generation 1</span>
+      <span><i class="sw" style="background:var(--g2)"></i>generation 2</span>
+      <span><i class="sw" style="background:var(--g3)"></i>generation 3</span>
+      <span><i class="ln"></i>Pareto front (current)</span>
+      <span><i class="ln dash"></i>front one generation earlier</span>
+    </div>
+  </div>
+
+  <details>
+    <summary>Show the data as a table</summary>
+    <div class="tbl"><table id="tbl"></table></div>
+  </details>
+
+  <p class="note">Hypervolume is the area dominated by the front against the reference point (0, 0).
+  Children with identical scores are offset slightly left and right so that each one stays visible;
+  hover a dot for its exact scores. F&amp;S (secure-pass@1) is shown for reference and is not a search objective.</p>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const DATA = [
+ {name:"baseline",gen:0,w:null,func:56.7,sec:56.7,fs:36.7},
+ {name:"moead_g001_s00",gen:1,w:0.00,func:70.0,sec:70.0,fs:50.0},
+ {name:"moead_g001_s01",gen:1,w:0.25,func:63.3,sec:63.3,fs:40.0},
+ {name:"moead_g001_s02",gen:1,w:0.50,func:66.7,sec:63.3,fs:50.0},
+ {name:"moead_g001_s03",gen:1,w:0.75,func:60.0,sec:63.3,fs:40.0},
+ {name:"moead_g001_s04",gen:1,w:1.00,func:56.7,sec:76.7,fs:50.0},
+ {name:"moead_g002_s00",gen:2,w:0.00,func:63.3,sec:53.3,fs:33.3},
+ {name:"moead_g002_s01",gen:2,w:0.25,func:63.3,sec:63.3,fs:40.0},
+ {name:"moead_g002_s02",gen:2,w:0.50,func:63.3,sec:60.0,fs:40.0},
+ {name:"moead_g002_s03",gen:2,w:0.75,func:50.0,sec:56.7,fs:36.7},
+ {name:"moead_g002_s04",gen:2,w:1.00,func:46.7,sec:66.7,fs:40.0},
+ {name:"moead_g003_s00",gen:3,w:0.00,func:66.7,sec:63.3,fs:43.3},
+ {name:"moead_g003_s01",gen:3,w:0.25,func:70.0,sec:76.7,fs:56.7},
+ {name:"moead_g003_s02",gen:3,w:0.50,func:63.3,sec:63.3,fs:43.3},
+ {name:"moead_g003_s03",gen:3,w:0.75,func:60.0,sec:66.7,fs:50.0},
+ {name:"moead_g003_s04",gen:3,w:1.00,func:56.7,sec:70.0,fs:46.7},
+];
+
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("plot");
+const W = 640, H = 440, L = 56, R = 20, T = 16, B = 48;
+const X0 = 44, X1 = 80, Y0 = 50, Y1 = 82;
+const sx = v => L + (v - X0) / (X1 - X0) * (W - L - R);
+const sy = v => H - B - (v - Y0) / (Y1 - Y0) * (H - T - B);
+
+function el(tag, attrs, parent = svg) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  parent.appendChild(e);
+  return e;
+}
+
+function front(pts) {
+  const nd = pts.filter(p => !pts.some(q => q !== p && q.func >= p.func && q.sec >= p.sec
+                                     && (q.func > p.func || q.sec > p.sec)));
+  const seen = new Set(), out = [];
+  for (const p of nd.sort((a, b) => a.func - b.func)) {
+    const k = p.func + "," + p.sec;
+    if (!seen.has(k)) { seen.add(k); out.push(p); }
+  }
+  return out;
+}
+
+function hypervolume(fr) {
+  let area = 0, prevX = 0;
+  for (const p of [...fr].sort((a, b) => b.sec - a.sec)) {
+    if (p.func > prevX) { area += (p.func - prevX) * p.sec; prevX = p.func; }
+  }
+  return area / 1e4;
+}
+
+function staircase(fr) {
+  const pts = [...fr].sort((a, b) => b.sec - a.sec);
+  let d = `M${sx(X0)},${sy(pts[0].sec)}`;
+  pts.forEach((p, i) => {
+    const nextY = i + 1 < pts.length ? pts[i + 1].sec : Y0;
+    d += ` L${sx(p.func)},${sy(p.sec)} L${sx(p.func)},${sy(nextY)}`;
+  });
+  return d;
+}
+
+// Offsets for coincident scores, centered on the true value.
+const count = {}, seenAt = {};
+for (const d of DATA) { const k = d.func + "," + d.sec; count[k] = (count[k] || 0) + 1; }
+for (const d of DATA) {
+  const k = d.func + "," + d.sec; const i = seenAt[k] || 0; seenAt[k] = i + 1;
+  d.dx = (i - (count[k] - 1) / 2) * 0.8;
+}
+
+// Static chrome: grid, axes, labels.
+const chrome = el("g", {});
+for (let v = 45; v <= 80; v += 5) {
+  el("line", {x1: sx(v), x2: sx(v), y1: sy(Y0), y2: sy(Y1), stroke: "var(--grid)", "stroke-width": 1}, chrome);
+  el("text", {x: sx(v), y: sy(Y0) + 18, "text-anchor": "middle", fill: "var(--muted)", "font-size": 12}, chrome).textContent = v;
+}
+for (let v = 50; v <= 80; v += 5) {
+  el("line", {x1: sx(X0), x2: sx(X1), y1: sy(v), y2: sy(v), stroke: "var(--grid)", "stroke-width": 1}, chrome);
+  el("text", {x: sx(X0) - 8, y: sy(v) + 4, "text-anchor": "end", fill: "var(--muted)", "font-size": 12}, chrome).textContent = v;
+}
+el("line", {x1: sx(X0), x2: sx(X1), y1: sy(Y0), y2: sy(Y0), stroke: "var(--axis)", "stroke-width": 1}, chrome);
+el("line", {x1: sx(X0), x2: sx(X0), y1: sy(Y0), y2: sy(Y1), stroke: "var(--axis)", "stroke-width": 1}, chrome);
+el("text", {x: (sx(X0) + sx(X1)) / 2, y: H - 8, "text-anchor": "middle", fill: "var(--ink2)", "font-size": 13}, chrome).textContent = "functionality (%) →";
+const yl = el("text", {x: 0, y: 0, "text-anchor": "middle", fill: "var(--ink2)", "font-size": 13,
+                      transform: `translate(16 ${(sy(Y0) + sy(Y1)) / 2}) rotate(-90)`}, chrome);
+yl.textContent = "security (%) →";
+
+const layer = el("g", {});
+const tip = document.getElementById("tip");
+const fmt = v => v.toFixed(1);
+
+function showTip(e, d) {
+  const w = d.w === null ? "—" : d.w.toFixed(2);
+  tip.innerHTML = `<b>${d.name}</b><br><span class="m">generation ${d.gen} · w<sub>sec</sub> ${w}<br>` +
+    `func ${fmt(d.func)} · sec ${fmt(d.sec)} · F&amp;S ${fmt(d.fs)}</span>`;
+  tip.style.opacity = 1;
+  const r = tip.getBoundingClientRect();
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+
+function draw(g) {
+  layer.replaceChildren();
+  const vis = DATA.filter(d => d.gen <= g);
+  const fr = front(vis);
+  if (g > 0) {
+    const prev = front(DATA.filter(d => d.gen <= g - 1));
+    el("path", {d: staircase(prev), fill: "none", stroke: "var(--g2)", "stroke-width": 2,
+                "stroke-dasharray": "5 4", opacity: 0.8}, layer);
+  }
+  el("path", {d: staircase(fr), fill: "none", stroke: "var(--g3)", "stroke-width": 2}, layer);
+
+  for (const d of vis) {
+    const cx = sx(d.func + d.dx), cy = sy(d.sec);
+    const fill = `var(--g${d.gen})`;
+    const mark = d.gen === 0
+      ? el("rect", {x: cx - 5, y: cy - 5, width: 10, height: 10, rx: 2, fill, stroke: "var(--surface)", "stroke-width": 2}, layer)
+      : el("circle", {cx, cy, r: 5.5, fill, stroke: "var(--surface)", "stroke-width": 2}, layer);
+    const hit = el("circle", {cx, cy, r: 12, fill: "transparent", tabindex: 0,
+                             "aria-label": `${d.name}: functionality ${fmt(d.func)}, security ${fmt(d.sec)}`}, layer);
+    hit.addEventListener("mousemove", e => showTip(e, d));
+    hit.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
+    hit.addEventListener("focus", () => {
+      const r = hit.getBoundingClientRect();
+      showTip({clientX: r.right, clientY: r.top}, d);
+    });
+    hit.addEventListener("blur", () => { tip.style.opacity = 0; });
+  }
+
+  // Direct labels on front members only.
+  for (const p of fr) {
+    const right = p.func < 62;
+    el("text", {x: sx(p.func) + (right ? 10 : -10), y: sy(p.sec) - 10,
+                "text-anchor": right ? "start" : "end", fill: "var(--ink)", "font-size": 12},
+       layer).textContent = `${p.name.replace("moead_", "")} (${fmt(p.func)}, ${fmt(p.sec)})`;
+  }
+
+  document.getElementById("genv").textContent = g;
+  document.getElementById("hv").textContent = hypervolume(fr).toFixed(3);
+  document.getElementById("fsz").textContent = fr.length;
+
+  const onFront = new Set(fr.map(p => p.func + "," + p.sec));
+  const tbl = document.getElementById("tbl");
+  tbl.innerHTML = "<tr><th>harness</th><th>gen.</th><th>w<sub>sec</sub></th><th>func</th><th>sec</th><th>F&amp;S</th></tr>" +
+    vis.map(d => `<tr class="${onFront.has(d.func + "," + d.sec) ? "front" : ""}"><td>${d.name}</td><td>${d.gen}</td>` +
+      `<td>${d.w === null ? "—" : d.w.toFixed(2)}</td><td>${fmt(d.func)}</td><td>${fmt(d.sec)}</td><td>${fmt(d.fs)}</td></tr>`).join("");
+}
+
+const slider = document.getElementById("gen");
+slider.addEventListener("input", () => draw(+slider.value));
+draw(+slider.value);
+</script>
+</body>
+</html>
