@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOEA/D Real Run · BAXBench Pareto front</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3342;
+    --txt:#e6edf3; --muted:#93a1b3; --accent:#4c9aff; --accent2:#ffb454;
+    --search:#4c9aff; --out:#ffb454; --front:#7aa2ff; --frontO:#ffb454;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;}
+  h1{font-size:22px;margin:0 0 4px;font-weight:650;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:8px;}
+  .warn{font-size:12px;color:var(--accent2);background:rgba(255,180,84,.08);
+    border:1px solid rgba(255,180,84,.3);border-radius:8px;padding:8px 12px;margin-bottom:18px;}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;}
+  canvas{width:100%;height:auto;display:block;border-radius:8px;background:#0b0e13;}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;transition:.15s;}
+  button:hover{border-color:var(--accent);color:#fff;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#04101f;font-weight:600;}
+  button.on{border-color:var(--accent2);color:var(--accent2);}
+  .row{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:13px;}
+  .row label{color:var(--muted);min-width:104px;}
+  input[type=range]{flex:1;accent-color:var(--accent);}
+  .stat{font-variant-numeric:tabular-nums;}
+  .legend{font-size:12px;color:var(--muted);margin-top:10px;display:grid;gap:5px;}
+  .legend .k{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .kline{display:inline-block;width:16px;height:0;border-top:2px solid;margin-right:6px;vertical-align:middle;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--muted);margin-left:6px;}
+  h3{font-size:14px;margin:2px 0 6px;}
+  .big{font-size:20px;font-weight:650;color:#fff;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MOEA/D Real Run <span class="tag">BAXBench · run baxauto1</span></h1>
+  <div class="sub">Every dot is one evolved agent-harness (genome), scored by the real BAXBench grader over 28 cover-sampled tasks (all 14 language/framework envs). Axes = the two objectives (both maximized → better is up-and-right). Hit Play to reveal generation by generation.</div>
+  <div class="warn">⚠ Data source: <b>/tmp/baxauto1.log</b> — operator=<b>auto</b>, 6 subproblems, opus solver/proposer. Blue = <b>search-set</b> score (26 genomes, gen 0–4). Orange = each generation's champion re-scored on <b>held-out OUT</b> (a programming language never seen during search). Both Pareto fronts are drawn. Axes are zoomed to the data range. Gen 5–6 still running (HV flat at 0.481 since gen 2).</div>
+
+  <div class="grid">
+    <div class="card">
+      <canvas id="cv" width="1200" height="860"></canvas>
+      <div class="controls">
+        <button id="play" class="primary">▶ Play</button>
+        <button id="reset">↻ Reset</button>
+        <button id="sSearch" class="on">Search points</button>
+        <button id="sOut" class="on">Held-out OUT</button>
+        <button id="sFront" class="on">Pareto fronts</button>
+        <button id="sLbl">Labels</button>
+      </div>
+      <div class="row"><label>Generation ≤</label><input id="gen" type="range" min="0" max="4" value="4"><span class="stat" id="genv">4</span></div>
+      <div class="legend">
+        <div><span class="k" style="background:var(--search)"></span>search-set harness &nbsp; <span class="k" style="background:var(--out)"></span>champion · held-out OUT (unseen language)</div>
+        <div><span class="kline" style="border-color:var(--front)"></span>search-set Pareto front &nbsp; <span class="kline" style="border-color:var(--frontO);border-top-style:dashed"></span>held-out OUT Pareto front</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Run summary</h3>
+      <div style="display:flex;gap:16px;margin:6px 0 4px;flex-wrap:wrap">
+        <div><div class="note">Harnesses shown</div><div class="big stat" id="ncand">26</div></div>
+        <div><div class="note">HV · search</div><div class="big stat" id="hvS" style="color:var(--search)">0.000</div></div>
+        <div><div class="note">z* (sec,func)</div><div class="big stat" id="zstar" style="color:var(--accent2);font-size:15px">–</div></div>
+      </div>
+      <div class="note" style="margin-top:6px">Hypervolume vs. generation (search-set, ref (0,0))</div>
+      <canvas id="spark" width="600" height="150" style="width:100%;height:auto;border-radius:6px;margin-top:4px"></canvas>
+
+      <h3 style="margin-top:16px">How to read it</h3>
+      <div class="note" style="line-height:1.75">
+      · <b>Sparse real scatter.</b> 26 real harnesses → a scatter; each "Pareto front" is a short <i>staircase</i> through the non-dominated points, not a smooth curve.<br>
+      · <b>Front jumps in gen 1, then stalls.</b> Play it: gen-0 seeds sit low-left; gen 1 leaps up-right (HV 0.301→0.455, a <b>tool</b> child hits func 75%); gen 2 nudges to 0.481 (a <b>diff</b> child hits sec 64%); gen 3–4 add <b>zero</b> new non-dominated points — converged.<br>
+      · <b>Held-out front (orange) vs. search front (blue).</b> The orange front is the champions' cross-language generalization. Note func often <i>rises</i> out-of-distribution (up to 82%) while security dips.<br>
+      · <b>Hypervolume</b> (area dominated toward the origin) is the single-number scorecard — it flatlines after gen 2.
+      </div>
+      <div class="note" id="best" style="margin-top:10px;color:var(--txt)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- real data: from /tmp/baxauto1.log ----------
+// s = search-set [sec,func]; ho = held-out OUT [safe,func] (champions only) or null
+const DATA = [
+{name:"bax_security",gen:0,s:[0.500,0.571],ho:null},
+{name:"bax_functionality",gen:0,s:[0.429,0.607],ho:null},
+
+{name:"g001_s00",gen:1,s:[0.429,0.607],ho:null},
+{name:"g001_s01",gen:1,s:[0.607,0.750],ho:[0.643,0.786]},   // champion gen1 (tool)
+{name:"g001_s02",gen:1,s:[0.536,0.607],ho:null},
+{name:"g001_s03",gen:1,s:[0.571,0.643],ho:null},
+{name:"g001_s04",gen:1,s:[0.536,0.643],ho:null},
+{name:"g001_s05",gen:1,s:[0.607,0.679],ho:null},
+
+{name:"g002_s00",gen:2,s:[0.429,0.607],ho:null},
+{name:"g002_s01",gen:2,s:[0.607,0.714],ho:null},
+{name:"g002_s02",gen:2,s:[0.536,0.607],ho:null},
+{name:"g002_s03",gen:2,s:[0.643,0.714],ho:[0.571,0.714]},   // champion gen2+ (diff)
+{name:"g002_s04",gen:2,s:[0.571,0.643],ho:null},
+{name:"g002_s05",gen:2,s:[0.607,0.679],ho:null},
+
+{name:"g003_s00",gen:3,s:[0.464,0.643],ho:null},
+{name:"g003_s01",gen:3,s:[0.607,0.679],ho:[0.643,0.821]},   // best held-out OUT
+{name:"g003_s02",gen:3,s:[0.607,0.643],ho:null},
+{name:"g003_s03",gen:3,s:[0.571,0.643],ho:null},
+{name:"g003_s04",gen:3,s:[0.500,0.571],ho:null},
+{name:"g003_s05",gen:3,s:[0.536,0.607],ho:null},
+
+{name:"g004_s00",gen:4,s:[0.536,0.607],ho:null},
+{name:"g004_s01",gen:4,s:[0.571,0.679],ho:null},
+{name:"g004_s02",gen:4,s:[0.607,0.679],ho:[0.571,0.714]},
+{name:"g004_s03",gen:4,s:[0.571,0.643],ho:null},
+{name:"g004_s04",gen:4,s:[0.500,0.571],ho:null},
+{name:"g004_s05",gen:4,s:[0.536,0.607],ho:null},
+];
+const MAXGEN = Math.max(...DATA.map(d=>d.gen));
+
+// ---------- canvas / scale (zoomed to data range, independent per axis) ----------
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,PAD=76;
+const LOx=0.40, HIx=0.70;               // security axis
+const LOy=0.52, HIy=0.85;               // functionality axis
+const STEP=0.05;
+function sx(v){return PAD + (v-LOx)/(HIx-LOx)*(W-2*PAD);}
+function sy(v){return H-PAD - (v-LOy)/(HIy-LOy)*(H-2*PAD);}
+const REF=[0,0];                        // hypervolume reference (matches harness log)
+
+let showSearch=true, showOut=true, showFront=true, showLbl=false;
+let genMax=MAXGEN;
+
+// ---------- pareto / hypervolume (MAXIMIZE both) ----------
+function visible(){ return DATA.filter(d=>d.gen<=genMax); }
+function searchPts(){ return visible().map(d=>d.s); }
+function outPts(){ return visible().filter(d=>d.ho).map(d=>d.ho); }
+function front(pts){
+  const nd = pts.filter(p => !pts.some(q => q!==p && q[0]>=p[0] && q[1]>=p[1] && (q[0]>p[0]||q[1]>p[1])));
+  const seen=new Set(), res=[];
+  nd.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  for(const p of nd){ const k=p[0].toFixed(4)+","+p[1].toFixed(4); if(!seen.has(k)){seen.add(k);res.push(p);} }
+  return res;
+}
+function hv(pts){
+  const s = front(pts).slice().sort((a,b)=>b[0]-a[0]);
+  let baseline=REF[1], area=0;
+  for(const [x,y] of s){ if(y>baseline){ area += (x-REF[0]) * (y-baseline); baseline=y; } }
+  return area;
+}
+function zstar(pts){ if(!pts.length) return [0,0];
+  return [Math.max(...pts.map(p=>p[0])), Math.max(...pts.map(p=>p[1]))]; }
+
+// ---------- drawing ----------
+function axes(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='#2a3342'; ctx.lineWidth=1.2;
+  for(let t=Math.ceil(LOx/STEP)*STEP; t<=HIx+1e-9; t+=STEP){
+    ctx.beginPath(); ctx.moveTo(sx(t),sy(LOy)); ctx.lineTo(sx(t),sy(HIy)); ctx.stroke(); }
+  for(let t=Math.ceil(LOy/STEP)*STEP; t<=HIy+1e-9; t+=STEP){
+    ctx.beginPath(); ctx.moveTo(sx(LOx),sy(t)); ctx.lineTo(sx(HIx),sy(t)); ctx.stroke(); }
+  ctx.strokeStyle='#3a4a63'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(sx(LOx),sy(LOy)); ctx.lineTo(sx(HIx),sy(LOy));
+  ctx.moveTo(sx(LOx),sy(LOy)); ctx.lineTo(sx(LOx),sy(HIy)); ctx.stroke();
+  ctx.fillStyle='#93a1b3'; ctx.font='16px sans-serif';
+  ctx.fillText('security — secure-pass@1 →', sx((LOx+HIx)/2)-110, sy(LOy)+40);
+  ctx.save(); ctx.translate(sx(LOx)-44,sy((LOy+HIy)/2)+110); ctx.rotate(-Math.PI/2);
+  ctx.fillText('functionality — pass@1 →',0,0); ctx.restore();
+  ctx.fillStyle='#5b6a80'; ctx.font='12px sans-serif';
+  for(let t=Math.ceil(LOx/0.1)*0.1; t<=HIx+1e-9; t+=0.1){ ctx.fillText(t.toFixed(1),sx(t)-8,sy(LOy)+22); }
+  for(let t=Math.ceil(LOy/0.1)*0.1; t<=HIy+1e-9; t+=0.1){ ctx.fillText(t.toFixed(1),sx(LOx)-34,sy(t)+4); }
+  ctx.fillStyle='#41506b'; ctx.font='13px sans-serif';
+  ctx.fillText('better →',sx(HIx-0.05),sy(HIy-0.02));
+}
+
+function drawFront(pts,color,dash){
+  const f=front(pts).slice().sort((a,b)=>a[0]-b[0]);
+  if(f.length<1) return;
+  ctx.strokeStyle=color; ctx.lineWidth=2.4; ctx.setLineDash(dash||[]);
+  if(f.length===1){   // degenerate front: a small crosshair so it's still visible
+    const [x,y]=f[0];
+    ctx.beginPath(); ctx.moveTo(sx(x)-9,sy(y)); ctx.lineTo(sx(x)+9,sy(y));
+    ctx.moveTo(sx(x),sy(y)-9); ctx.lineTo(sx(x),sy(y)+9); ctx.stroke();
+    ctx.setLineDash([]); return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(sx(f[0][0]),sy(f[0][1]));
+  for(let i=1;i<f.length;i++){
+    ctx.lineTo(sx(f[i][0]),sy(f[i-1][1]));   // horizontal
+    ctx.lineTo(sx(f[i][0]),sy(f[i][1]));     // vertical
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+function drawSearchPts(){
+  for(const d of visible()){
+    const p=d.s; const fresh = d.gen===genMax;
+    ctx.beginPath(); ctx.arc(sx(p[0]),sy(p[1]), fresh?6.5:5, 0, 7);
+    ctx.fillStyle='#4c9aff'; ctx.globalAlpha= fresh?1:.72; ctx.fill();
+    if(fresh){ ctx.lineWidth=1.6; ctx.strokeStyle='#fff'; ctx.stroke(); }
+    ctx.globalAlpha=1;
+    if(showLbl){ ctx.fillStyle='#93a1b3'; ctx.font='10px sans-serif';
+      ctx.fillText(d.name, sx(p[0])+8, sy(p[1])-6); }
+  }
+}
+function drawOutPts(){
+  for(const d of visible()){
+    if(!d.ho) continue;
+    const p=d.ho;
+    ctx.beginPath(); ctx.arc(sx(p[0]),sy(p[1]),6,0,7);
+    ctx.fillStyle='#ffb454'; ctx.fill();
+    ctx.lineWidth=1.4; ctx.strokeStyle='#7a5a20'; ctx.stroke();
+    if(showLbl){ ctx.fillStyle='#c8a15a'; ctx.font='10px sans-serif';
+      ctx.fillText(d.name+' · OUT', sx(p[0])+8, sy(p[1])+14); }
+  }
+}
+
+function draw(){
+  axes();
+  if(showFront){ drawFront(outPts(),'#ffb454',[6,4]); drawFront(searchPts(),'#7aa2ff'); }
+  if(showOut) drawOutPts();
+  if(showSearch) drawSearchPts();
+
+  document.getElementById('ncand').textContent=visible().length;
+  document.getElementById('hvS').textContent=hv(searchPts()).toFixed(3);
+  const z=zstar(searchPts());
+  document.getElementById('zstar').textContent=(z[0]*100).toFixed(1)+"% , "+(z[1]*100).toFixed(1)+"%";
+  drawSpark();
+  const vis=visible();
+  if(vis.length){
+    const best=vis.reduce((a,b)=> Math.min(...a.s)>=Math.min(...b.s)?a:b);
+    document.getElementById('best').innerHTML =
+      `Most-balanced so far (max of min objective): <b>${best.name}</b> — sec ${(best.s[0]*100).toFixed(1)}%, func ${(best.s[1]*100).toFixed(1)}%`;
+  }
+}
+
+const sp=document.getElementById('spark'), spx=sp.getContext('2d');
+function drawSpark(){
+  const w=sp.width,h=sp.height,pad=16;
+  spx.clearRect(0,0,w,h); spx.fillStyle='#0b0e13'; spx.fillRect(0,0,w,h);
+  const gens=[]; for(let g=0;g<=MAXGEN;g++) gens.push(g);
+  const hvS=gens.map(g=>hv(DATA.filter(d=>d.gen<=g).map(d=>d.s)));
+  const mx=Math.max(...hvS,0.1), mn=0;
+  spx.strokeStyle='#4c9aff'; spx.lineWidth=2.4; spx.beginPath();
+  hvS.forEach((v,i)=>{ const x=pad+i/(gens.length-1)*(w-2*pad); const y=h-pad-(v-mn)/(mx-mn)*(h-2*pad); i?spx.lineTo(x,y):spx.moveTo(x,y); });
+  spx.stroke();
+  hvS.forEach((v,i)=>{ const x=pad+i/(gens.length-1)*(w-2*pad); const y=h-pad-(v-mn)/(mx-mn)*(h-2*pad);
+    spx.fillStyle=(i<=genMax)?'#4c9aff':'#33415a'; spx.beginPath(); spx.arc(x,y,3,0,7); spx.fill();
+    spx.fillStyle='#5b6a80'; spx.font='11px sans-serif'; spx.fillText(v.toFixed(3),x-14,y-8); });
+  spx.strokeStyle='#334'; spx.lineWidth=1;
+  const gx=pad+genMax/(gens.length-1)*(w-2*pad);
+  spx.beginPath(); spx.moveTo(gx,pad-4); spx.lineTo(gx,h-pad+4); spx.stroke();
+  spx.fillStyle='#5b6a80'; spx.font='13px sans-serif';
+  spx.fillText('gen 0',pad,h-2); spx.fillText('gen '+MAXGEN,w-58,h-2);
+}
+
+// ---------- controls ----------
+let playing=false, timer=null;
+function setGen(g){ genMax=g; document.getElementById('gen').value=g; document.getElementById('genv').textContent=g; draw(); }
+document.getElementById('gen').oninput=e=>setGen(+e.target.value);
+document.getElementById('play').onclick=e=>{
+  playing=!playing; e.target.textContent=playing?'⏸ Pause':'▶ Play'; e.target.classList.toggle('primary',!playing);
+  if(playing){ if(genMax>=MAXGEN) setGen(0);
+    timer=setInterval(()=>{ if(genMax>=MAXGEN){ clearInterval(timer); playing=false; e.target.textContent='▶ Play'; e.target.classList.add('primary'); return;} setGen(genMax+1); },950);
+  } else if(timer) clearInterval(timer);
+};
+document.getElementById('reset').onclick=()=>{ if(timer)clearInterval(timer); playing=false;
+  document.getElementById('play').textContent='▶ Play'; document.getElementById('play').classList.add('primary'); setGen(MAXGEN); };
+function tog(id,set){ const b=document.getElementById(id); b.onclick=()=>{ set(); b.classList.toggle('on'); draw(); }; }
+tog('sSearch',()=>showSearch=!showSearch); tog('sOut',()=>showOut=!showOut);
+tog('sFront',()=>showFront=!showFront); tog('sLbl',()=>showLbl=!showLbl);
+
+setGen(MAXGEN);
+</script>
+</body>
+</html>

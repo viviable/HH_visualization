@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOEA/D Real Run · SecRepoBench held-out Pareto front</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3342;
+    --txt:#e6edf3; --muted:#93a1b3; --accent:#4c9aff; --accent2:#ffb454;
+    --in:#4c9aff; --out:#ffb454; --comb:#5ac8a0; --front:#7aa2ff; --bad:#f2637d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;}
+  h1{font-size:22px;margin:0 0 4px;font-weight:650;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:8px;}
+  .warn{font-size:12px;color:var(--accent2);background:rgba(255,180,84,.08);
+    border:1px solid rgba(255,180,84,.3);border-radius:8px;padding:8px 12px;margin-bottom:18px;}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;}
+  canvas{width:100%;height:auto;display:block;border-radius:8px;background:#0b0e13;}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;transition:.15s;}
+  button:hover{border-color:var(--accent);color:#fff;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#04101f;font-weight:600;}
+  button.on{border-color:var(--accent2);color:var(--accent2);}
+  .row{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:13px;}
+  .row label{color:var(--muted);min-width:104px;}
+  input[type=range]{flex:1;accent-color:var(--accent);}
+  .stat{font-variant-numeric:tabular-nums;}
+  .legend{font-size:12px;color:var(--muted);margin-top:10px;display:grid;gap:5px;}
+  .legend .k{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .kline{display:inline-block;width:16px;height:0;border-top:2px solid;margin-right:6px;vertical-align:middle;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--muted);margin-left:6px;}
+  h3{font-size:14px;margin:2px 0 6px;}
+  .big{font-size:20px;font-weight:650;color:#fff;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MOEA/D Real Run <span class="tag">SecRepoBench held-out</span></h1>
+  <div class="sub">Every dot is one evolved agent-harness, scored by the real SecRepoBench grader. Axes = the two objectives (both maximized, so better is up-and-right). Hit Play to reveal generation by generation.</div>
+  <div class="warn">⚠ Data source: <b>logs/moead_heldout.jsonl</b> (21 candidates). The MOEA/D run only persisted <b>held-out</b> scores, so this overlays <b>IN</b> (held-out, crash types seen during search) vs <b>OUT</b> (held-out, unseen) — not search-set vs held-out (the search-set scores were never written to a log). The gap between the IN and OUT fronts is the generalization gap.</div>
+
+  <div class="grid">
+    <div class="card">
+      <canvas id="cv" width="1200" height="860"></canvas>
+      <div class="controls">
+        <button id="play" class="primary">▶ Play</button>
+        <button id="reset">↻ Reset</button>
+        <button id="sIn" class="on">IN points</button>
+        <button id="sOut" class="on">OUT points</button>
+        <button id="sComb">Combined</button>
+        <button id="sFront" class="on">Pareto fronts</button>
+        <button id="sHV">Hypervolume</button>
+        <button id="sLbl">Labels</button>
+      </div>
+      <div class="row"><label>Generation ≤</label><input id="gen" type="range" min="0" max="5" value="5"><span class="stat" id="genv">5</span></div>
+      <div class="legend">
+        <div><span class="k" style="background:var(--in)"></span>IN (seen crash types) &nbsp; <span class="k" style="background:var(--out)"></span>OUT (unseen) &nbsp; <span class="k" style="background:var(--comb)"></span>Combined held-out</div>
+        <div><span class="kline" style="border-color:var(--in)"></span>IN Pareto front &nbsp; <span class="kline" style="border-color:var(--out)"></span>OUT Pareto front &nbsp; <span class="k" style="background:var(--bad);border-radius:2px"></span>reference point (0,0)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Run summary</h3>
+      <div style="display:flex;gap:16px;margin:6px 0 4px;flex-wrap:wrap">
+        <div><div class="note">Candidates shown</div><div class="big stat" id="ncand">21</div></div>
+        <div><div class="note">HV · IN</div><div class="big stat" id="hvIn" style="color:var(--in)">0.000</div></div>
+        <div><div class="note">HV · OUT</div><div class="big stat" id="hvOut" style="color:var(--out)">0.000</div></div>
+      </div>
+      <div class="note" style="margin-top:6px">Hypervolume vs. generation (IN solid, OUT dashed)</div>
+      <canvas id="spark" width="600" height="150" style="width:100%;height:auto;border-radius:6px;margin-top:4px"></canvas>
+
+      <h3 style="margin-top:16px">How to read it</h3>
+      <div class="note" style="line-height:1.75">
+      · <b>Not a smooth curve.</b> With ~21 real candidates you get a <i>sparse scatter</i>, and the "Pareto front" is a short <i>staircase</i> through the non-dominated points — not the analytic curve in the ZDT teaching demo.<br>
+      · <b>Front marches up-right over generations.</b> Drag the slider or Play: gen-0 seeds (baseline + first proposals) sit low-left; by gen 2–5 the <b>fbevo/ts</b> lineages push both fronts toward (1,1).<br>
+      · <b>IN sits above/right of OUT.</b> That vertical gap is the generalization gap — harnesses do better on crash types seen during search than on unseen ones.<br>
+      · <b>Hypervolume</b> (area dominated toward the origin ref point) is the single-number scorecard; watch both sparklines climb.
+      </div>
+      <div class="note" id="best" style="margin-top:10px;color:var(--txt)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- real data: from logs/moead_heldout.jsonl ----------
+// each: {name, gen, in:[sec,func], out:[sec,func], comb:[sec,func]}
+const DATA = [
+{name:"baseline",gen:0,in:[0.4333,0.3333],out:[0.1,0.3],comb:[0.2667,0.3167]},
+{name:"moead_g001_s00",gen:0,in:[0.6,0.6],out:[0.3,0.6333],comb:[0.45,0.6167]},
+{name:"moead_g002_s01",gen:0,in:[0.6333,0.7],out:[0.2333,0.6333],comb:[0.4333,0.6667]},
+{name:"moead_g003_s01",gen:0,in:[0.7,0.6],out:[0.2,0.5333],comb:[0.45,0.5667]},
+{name:"baseline*",gen:0,in:[0.6667,0.6],out:[0.4333,0.6667],comb:[0.55,0.6333]},
+{name:"moead_g001_s00*",gen:0,in:[0.6333,0.6333],out:[0.4667,0.8],comb:[0.55,0.7167]},
+{name:"moead_g002_s01*",gen:0,in:[0.6667,0.6],out:[0.3,0.6667],comb:[0.4833,0.6333]},
+{name:"moead_g003_s01*",gen:0,in:[0.6667,0.5667],out:[0.3333,0.7667],comb:[0.5,0.6667]},
+{name:"fbevo_g001_s02",gen:1,in:[0.8,0.6333],out:[0.5667,0.6667],comb:[0.6833,0.65]},
+{name:"fbevo_g002_s02",gen:2,in:[0.8,0.7],out:[0.6333,0.8],comb:[0.7167,0.75]},
+{name:"fbevo_g003_s01",gen:3,in:[0.8333,0.8],out:[0.5,0.7667],comb:[0.6667,0.7833]},
+{name:"fbevo6_g001_s03",gen:1,in:[0.8667,0.6333],out:[0.6,0.7667],comb:[0.7333,0.7]},
+{name:"fbevo6_g002_s03",gen:2,in:[0.8333,0.7],out:[0.5,0.6],comb:[0.6667,0.65]},
+{name:"fbevo6_g003_s01",gen:3,in:[0.7667,0.6667],out:[0.4667,0.8333],comb:[0.6167,0.75]},
+{name:"fbevo6_g004_s03",gen:4,in:[0.8333,0.6667],out:[0.5,0.5333],comb:[0.6667,0.6]},
+{name:"fbevo6_g005_s03",gen:5,in:[0.8333,0.7333],out:[0.6333,0.7],comb:[0.7333,0.7167]},
+{name:"ts_g001_s01",gen:1,in:[0.3667,0.3667],out:[0.4,0.4667],comb:[0.3833,0.4167]},
+{name:"ts_g002_s04",gen:2,in:[0.8333,0.7333],out:[0.5667,0.7333],comb:[0.7,0.7333]},
+{name:"ts_g003_s03",gen:3,in:[0.8667,0.6667],out:[0.5333,0.6667],comb:[0.7,0.6667]},
+{name:"meta_v0_g001_s01",gen:1,in:[0.7667,0.5667],out:[0.6667,0.6],comb:[0.7167,0.5833]},
+{name:"meta_v1_g001_s00",gen:1,in:[0.8333,0.6667],out:[0.5333,0.6667],comb:[0.6833,0.6667]},
+];
+const MAXGEN = Math.max(...DATA.map(d=>d.gen));
+
+// ---------- canvas / scale ----------
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,PAD=76;
+const LO=0, HI=1;                       // objective range (maximize both)
+function sx(v){return PAD + (v-LO)/(HI-LO)*(W-2*PAD);}
+function sy(v){return H-PAD - (v-LO)/(HI-LO)*(H-2*PAD);}
+const REF=[0,0];                        // hypervolume reference (worse than everything)
+
+let showIn=true, showOut=true, showComb=false, showFront=true, showHV=false, showLbl=false;
+let genMax=MAXGEN;
+
+// ---------- pareto / hypervolume (MAXIMIZE both) ----------
+function visible(){ return DATA.filter(d=>d.gen<=genMax); }
+function ptsOf(key){ return visible().map(d=>d[key]).filter(p=>p[0]>0||p[1]>0); }
+function front(pts){
+  // non-dominated for maximization
+  const nd = pts.filter(p => !pts.some(q => q!==p && q[0]>=p[0] && q[1]>=p[1] && (q[0]>p[0]||q[1]>p[1])));
+  // dedup + sort by sec asc
+  const seen=new Set(), res=[];
+  nd.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  for(const p of nd){ const k=p[0].toFixed(4)+","+p[1].toFixed(4); if(!seen.has(k)){seen.add(k);res.push(p);} }
+  return res;
+}
+function hv(pts){
+  // 2-D hypervolume, MAXIMIZE both, ref at origin: union of [0,x]x[0,y] rectangles.
+  // Walk the front sec-descending; add (x-refx)*(y-baseline) each time func rises.
+  const s = front(pts).slice().sort((a,b)=>b[0]-a[0]);
+  let baseline=REF[1], area=0;
+  for(const [x,y] of s){
+    if(y>baseline){ area += (x-REF[0]) * (y-baseline); baseline=y; }
+  }
+  return area;
+}
+
+// ---------- drawing ----------
+function axes(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='#2a3342'; ctx.lineWidth=1.2;
+  for(let t=0;t<=1.0001;t+=0.1){
+    ctx.beginPath(); ctx.moveTo(sx(t),sy(0)); ctx.lineTo(sx(t),sy(1)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(0),sy(t)); ctx.lineTo(sx(1),sy(t)); ctx.stroke();
+  }
+  ctx.strokeStyle='#3a4a63'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(sx(0),sy(0)); ctx.lineTo(sx(1),sy(0)); ctx.moveTo(sx(0),sy(0)); ctx.lineTo(sx(0),sy(1)); ctx.stroke();
+  ctx.fillStyle='#93a1b3'; ctx.font='16px sans-serif';
+  ctx.fillText('security (sec_score) →', sx(0.5)-90, sy(0)+40);
+  ctx.save(); ctx.translate(sx(0)-44,sy(0.5)+90); ctx.rotate(-Math.PI/2);
+  ctx.fillText('functionality (func_score) →',0,0); ctx.restore();
+  ctx.fillStyle='#5b6a80'; ctx.font='12px sans-serif';
+  for(let t=0;t<=1.0001;t+=0.2){
+    ctx.fillText(t.toFixed(1),sx(t)-8,sy(0)+22);
+    ctx.fillText(t.toFixed(1),sx(0)-30,sy(t)+4);
+  }
+  ctx.fillStyle='#41506b'; ctx.font='13px sans-serif';
+  ctx.fillText('better →',sx(0.86),sy(0.97));
+}
+
+function drawHVregion(pts,color){
+  const s = front(pts).slice().sort((a,b)=>b[0]-a[0]);
+  if(!s.length) return;
+  ctx.beginPath();
+  let baseline=REF[1];
+  ctx.moveTo(sx(REF[0]),sy(REF[1]));
+  // build staircase from origin
+  const asc=front(pts).slice().sort((a,b)=>a[0]-b[0]);
+  ctx.moveTo(sx(REF[0]),sy(REF[1]));
+  ctx.lineTo(sx(REF[0]),sy(asc[0][1]));
+  let prevY=asc[0][1];
+  for(const [x,y] of asc){
+    ctx.lineTo(sx(x),sy(prevY));
+    ctx.lineTo(sx(x),sy(Math.min(prevY,y)));
+    prevY=Math.min(prevY,y);
+  }
+  ctx.lineTo(sx(asc[asc.length-1][0]),sy(REF[1]));
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+}
+
+function drawFront(pts,color){
+  const f=front(pts).slice().sort((a,b)=>a[0]-b[0]);
+  if(f.length<1) return;
+  ctx.strokeStyle=color; ctx.lineWidth=2.4; ctx.setLineDash([]);
+  ctx.beginPath();
+  // staircase: as sec increases, func decreases
+  ctx.moveTo(sx(f[0][0]),sy(f[0][1]));
+  for(let i=1;i<f.length;i++){
+    ctx.lineTo(sx(f[i][0]),sy(f[i-1][1]));   // horizontal
+    ctx.lineTo(sx(f[i][0]),sy(f[i][1]));     // vertical
+  }
+  ctx.stroke();
+}
+
+function drawPts(key,color){
+  for(const d of visible()){
+    const p=d[key]; if(p[0]<=0&&p[1]<=0) continue;
+    const fresh = d.gen===genMax;
+    ctx.beginPath(); ctx.arc(sx(p[0]),sy(p[1]), fresh?6.5:5, 0, 7);
+    ctx.fillStyle=color; ctx.globalAlpha= fresh?1: .78; ctx.fill();
+    if(fresh){ ctx.lineWidth=1.6; ctx.strokeStyle='#fff'; ctx.stroke(); }
+    ctx.globalAlpha=1;
+    if(showLbl){ ctx.fillStyle='#93a1b3'; ctx.font='10px sans-serif';
+      ctx.fillText(d.name.replace(/_s0\d\*?$/,''), sx(p[0])+8, sy(p[1])-6); }
+  }
+}
+
+function draw(){
+  axes();
+  if(showHV){ if(showOut) drawHVregion(ptsOf('out'),'rgba(255,180,84,.10)');
+              if(showIn)  drawHVregion(ptsOf('in'),'rgba(76,154,255,.12)'); }
+  // reference point
+  ctx.fillStyle='#f2637d'; ctx.fillRect(sx(0)-4,sy(0)-4,8,8);
+  if(showComb){ if(showFront) drawFront(ptsOf('comb'),'rgba(90,200,160,.7)'); drawPts('comb','#5ac8a0'); }
+  if(showOut){ if(showFront) drawFront(ptsOf('out'),'#ffb454'); drawPts('out','#ffb454'); }
+  if(showIn){ if(showFront) drawFront(ptsOf('in'),'#4c9aff'); drawPts('in','#4c9aff'); }
+
+  document.getElementById('ncand').textContent=visible().length;
+  document.getElementById('hvIn').textContent=hv(ptsOf('in')).toFixed(3);
+  document.getElementById('hvOut').textContent=hv(ptsOf('out')).toFixed(3);
+  drawSpark();
+  // most-balanced (max of min objective) among visible IN
+  const vis=visible().filter(d=>d.in[0]>0||d.in[1]>0);
+  if(vis.length){
+    const best=vis.reduce((a,b)=> Math.min(...a.in)>=Math.min(...b.in)?a:b);
+    document.getElementById('best').innerHTML =
+      `Most-balanced so far (max of min objective, IN): <b>${best.name}</b> — sec ${(best.in[0]*100).toFixed(0)}%, func ${(best.in[1]*100).toFixed(0)}%`;
+  }
+}
+
+const sp=document.getElementById('spark'), spx=sp.getContext('2d');
+function drawSpark(){
+  const w=sp.width,h=sp.height,pad=14;
+  spx.clearRect(0,0,w,h); spx.fillStyle='#0b0e13'; spx.fillRect(0,0,w,h);
+  const gens=[]; for(let g=0;g<=MAXGEN;g++) gens.push(g);
+  const hvInSeries=gens.map(g=>hv(DATA.filter(d=>d.gen<=g).map(d=>d.in).filter(p=>p[0]>0||p[1]>0)));
+  const hvOutSeries=gens.map(g=>hv(DATA.filter(d=>d.gen<=g).map(d=>d.out).filter(p=>p[0]>0||p[1]>0)));
+  const all=[...hvInSeries,...hvOutSeries]; const mx=Math.max(...all,0.1), mn=0;
+  function line(series,color,dash){
+    spx.strokeStyle=color; spx.lineWidth=2.4; spx.setLineDash(dash); spx.beginPath();
+    series.forEach((v,i)=>{ const x=pad+i/(gens.length-1)*(w-2*pad); const y=h-pad-(v-mn)/(mx-mn)*(h-2*pad); i?spx.lineTo(x,y):spx.moveTo(x,y); });
+    spx.stroke(); spx.setLineDash([]);
+  }
+  line(hvOutSeries,'#ffb454',[5,4]); line(hvInSeries,'#4c9aff',[]);
+  // current-gen marker
+  spx.strokeStyle='#334'; spx.lineWidth=1;
+  const gx=pad+genMax/(gens.length-1)*(w-2*pad);
+  spx.beginPath(); spx.moveTo(gx,pad-4); spx.lineTo(gx,h-pad+4); spx.stroke();
+  spx.fillStyle='#5b6a80'; spx.font='15px sans-serif';
+  spx.fillText('gen 0',pad,h-2); spx.fillText('gen '+MAXGEN,w-64,h-2);
+}
+
+// ---------- controls ----------
+let playing=false, timer=null;
+function setGen(g){ genMax=g; document.getElementById('gen').value=g; document.getElementById('genv').textContent=g; draw(); }
+document.getElementById('gen').oninput=e=>setGen(+e.target.value);
+document.getElementById('play').onclick=e=>{
+  playing=!playing; e.target.textContent=playing?'⏸ Pause':'▶ Play'; e.target.classList.toggle('primary',!playing);
+  if(playing){ if(genMax>=MAXGEN) setGen(0);
+    timer=setInterval(()=>{ if(genMax>=MAXGEN){ clearInterval(timer); playing=false; e.target.textContent='▶ Play'; e.target.classList.add('primary'); return;} setGen(genMax+1); },900);
+  } else if(timer) clearInterval(timer);
+};
+document.getElementById('reset').onclick=()=>{ if(timer)clearInterval(timer); playing=false;
+  document.getElementById('play').textContent='▶ Play'; document.getElementById('play').classList.add('primary'); setGen(MAXGEN); };
+function tog(id,set){ const b=document.getElementById(id); b.onclick=()=>{ set(); b.classList.toggle('on'); draw(); }; }
+tog('sIn',()=>showIn=!showIn); tog('sOut',()=>showOut=!showOut); tog('sComb',()=>showComb=!showComb);
+tog('sFront',()=>showFront=!showFront); tog('sHV',()=>showHV=!showHV); tog('sLbl',()=>showLbl=!showLbl);
+
+setGen(MAXGEN);
+</script>
+</body>
+</html>
