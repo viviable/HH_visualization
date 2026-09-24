@@ -12,5 +12,6 @@ functionality, security and F&S scores.
 ## Pages
 
 - [`index.html`](index.html): Pareto front of MOEA/D alone on SecRepoBench (search split), as in the appendix figure.
+- [`baxbench.html`](baxbench.html): Pareto front of a MOEA/D run on BaxBench (search cover set), as in the appendix figure.
 - [`moead_secrepo_data.html`](moead_secrepo_data.html): SecRepoBench held-out Pareto fronts (IN vs. OUT), generation by generation.
 - [`moead_baxbench_data.html`](moead_baxbench_data.html): BaxBench search-set and held-out OUT Pareto fronts, generation by generation.
